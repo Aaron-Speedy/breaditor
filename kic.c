@@ -15,6 +15,11 @@ typedef struct {
 } Line;
 
 typedef struct {
+  int x, y;
+  int sx;
+} Cursor;
+
+typedef struct {
   Line *lines;
   size_t num_lines;
   size_t cap_lines;
@@ -25,9 +30,7 @@ typedef struct {
 
   int bound_x, bound_y; // Rightmost x and top y
 
-  struct {
-    int x, y;
-  } cursor;
+  Cursor cur;
 
   enum {
     MODE_NORMAL = 0,
@@ -47,7 +50,7 @@ int main(void) {
     .bound_x = 0,
     .bound_y = 0,
     .mode = 0,
-    .cursor = { 0, 0 },
+    .cur = { 0, 0 },
   };
   buf.lines = malloc(sizeof(Line) * buf.cap_lines);
   buf.line_buf = malloc(sizeof(char_t) * buf.line_buf_cap);
@@ -84,26 +87,43 @@ int main(void) {
       }
       printf("\n");
     }
-    st_set_cursor(buf.cursor.x + max_digits + 2, buf.cursor.y);
+    st_set_cursor(buf.cur.x + max_digits + 2, buf.cur.y);
 
     /* ==== Input ==== */
     {
-      char_t input;
+      Line *line = &buf.lines[buf.cur.y];
+      char_t input; // TODO: unicode
       read(0, &input, 1); // TODO: magic number
       switch (buf.mode) {
       case MODE_NORMAL: {
         switch (input) {
         case 'q': goto exit; break;
-        case 'h': buf.cursor.x -= 1; break;
-        case 'j': buf.cursor.y += 1; break;
-        case 'k': buf.cursor.y -= 1; break;
-        case 'l': buf.cursor.x += 1; break;
+        case 'h': {
+          if (buf.cur.x > 0) {
+            dec_cur_x(line, &buf.cur);
+          }
+        } break;
+        case 'j': {
+          if (buf.cur.y < buf.num_lines - 1) {
+            inc_cur_y(&buf, &buf.cur);
+          }
+        } break;
+        case 'k': {
+          if (buf.cur.y > 0) {
+            dec_cur_y(&buf, &buf.cur);
+          }
+        } break;
+        case 'l': {
+          if (buf.cur.x < line->len) {
+            inc_cur_x(line, &buf.cur);
+          }
+        } break;
         case 'd': {
-          delete_range(&buf.lines[buf.cursor.y], buf.cursor.x, 1);
+          delete_range(line, buf.cur.x, 1);
         } break;
         case 'o': {
-          insert_line(&buf, buf.cursor.y + 1);
-          buf.cursor.y += 1;
+          insert_line(&buf, buf.cur.y + 1);
+          inc_cur_y(&buf, &buf.cur);
           // could putting this into a function be used to implement hooks?
           buf.mode = MODE_INSERT;
         }
@@ -112,8 +132,8 @@ int main(void) {
       } break;
       case MODE_INSERT: {
         if (input >= ' ' && input <= '~') { // TODO: unicode
-          insert_str(&buf, buf.cursor.x, buf.cursor.y, &input, 1);
-          buf.cursor.x += 1;
+          insert_str(&buf, buf.cur.x, buf.cur.y, &input, 1);
+          inc_cur_x(line, &buf.cur);
         }
         if (input == '\x1b') buf.mode = 0;
       } break;

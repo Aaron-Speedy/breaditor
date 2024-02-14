@@ -79,10 +79,10 @@ void st_cleanup(void) {
 }
 
 unsigned short st_width() {
-  return st_winsize.ws_row; // TODO: swapped
+  return st_winsize.ws_col;
 }
 unsigned short st_height() {
-  return st_winsize.ws_col;
+  return st_winsize.ws_row;
 }
 
 #endif

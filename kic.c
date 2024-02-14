@@ -55,9 +55,9 @@ int main(void) {
   buf.lines = malloc(sizeof(Line) * buf.cap_lines);
   buf.line_buf = malloc(sizeof(char_t) * buf.line_buf_cap);
 
-  for (int i = 0; i < 26; i++) {
+  for (int i = 0; i < 100; i++) {
     insert_line(&buf, 0);
-    char_t str = i + 'A';
+    char_t str = (i % 26) + 'A';
     insert_str(&buf, 0, 0, &str, 1);
   }
 
@@ -69,11 +69,13 @@ int main(void) {
     st_clear();
 
     int height = min(buf.num_lines, st_height());
+
     int max_digits = floor(log10(buf.num_lines + 1));
-    for (int y = buf.bound_y; y < height; y++) {
+    for (int y = buf.bound_y; y < buf.bound_y + height; y++) {
       int width = min(st_width(), buf.lines[y].len);
 
       int num_digits = max_digits - floor(log10(y + 1));
+      printf("\n");
       printf("\x1b[38;5;244m"); // TODO: Add colors to stui.h
       for (int i = 0; i < num_digits; i++) {
         printf(" ");
@@ -82,12 +84,11 @@ int main(void) {
 
       printf("\x1b[38;5;255m");
 
-      for (int x = buf.bound_x; x < width; x++) {
+      for (int x = buf.bound_x; x < buf.bound_x + width; x++) {
         write(1, &buf.lines[y].str[x], 1); // TODO: magic number
       }
-      printf("\n");
     }
-    st_set_cursor(buf.cur.x + max_digits + 2, buf.cur.y);
+    st_set_cursor(buf.cur.x + max_digits + 2 - buf.bound_x, buf.cur.y - buf.bound_y);
 
     /* ==== Input ==== */
     {
@@ -105,11 +106,17 @@ int main(void) {
         } break;
         case 'j': {
           if (buf.cur.y < buf.num_lines - 1) {
+            if (buf.cur.y + 1 == buf.bound_y + height) {
+              buf.bound_y += 1;
+            }
             inc_cur_y(&buf, &buf.cur);
           }
         } break;
         case 'k': {
           if (buf.cur.y > 0) {
+            if (buf.cur.y == buf.bound_y) {
+              buf.bound_y -= 1;
+            }
             dec_cur_y(&buf, &buf.cur);
           }
         } break;

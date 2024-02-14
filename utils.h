@@ -5,6 +5,8 @@ void insert_line(Buffer *buf, int y);
 void insert_str(Buffer *buf, int x, int y, char_t *str, char_t str_len);
 void delete_range(Line *line, int x, int len);
 
+#define min(x, y) ((x) < (y) ? (x) : (y))
+
 #endif
 
 #ifdef UTILS_IMPL
@@ -54,7 +56,7 @@ void insert_line(Buffer *buf, int y) {
     buf->lines[y].str = &buf->line_buf[buf->line_buf_len];
   }
 
-  buf->lines[y].len = 1;
+  buf->lines[y].len = 0;
   buf->lines[y].cap = 1;
 
   buf->line_buf_len += 1;

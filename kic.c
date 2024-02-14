@@ -1,9 +1,10 @@
-#include <stdio.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <math.h>
+
+#define ST_IMPL
+#include "stui.h"
 
 typedef uint32_t char_t;
 
@@ -21,6 +22,17 @@ typedef struct {
   char_t *line_buf;
   size_t line_buf_len;
   size_t line_buf_cap;
+
+  int bound_x, bound_y; // Rightmost x and top y
+
+  struct {
+    int x, y;
+  } cursor;
+
+  enum {
+    MODE_NORMAL = 0,
+    MODE_INSERT,
+  } mode;
 } Buffer;
 
 #define UTILS_IMPL
@@ -31,23 +43,87 @@ int main(void) {
     .num_lines = 0,
     .cap_lines = 1,
     .line_buf_len = 0,
-    .line_buf_cap = 1000,
+    .line_buf_cap = 1000000000, // TODO
+    .bound_x = 0,
+    .bound_y = 0,
+    .mode = 0,
+    .cursor = { 0, 0 },
   };
   buf.lines = malloc(sizeof(Line) * buf.cap_lines);
   buf.line_buf = malloc(sizeof(char_t) * buf.line_buf_cap);
 
   for (int i = 0; i < 26; i++) {
-    insert_line(&buf, i);
-    buf.lines[0].str[i] = 'A' + i;
+    insert_line(&buf, 0);
+    char_t str = i + 'A';
+    insert_str(&buf, 0, 0, &str, 1);
   }
 
-  char_t str[] = { 'H', 'e', 'l', 'l', 'o' };
-  insert_str(&buf, 0, 0, str, 5);
+  st_init();
 
-  for (int i = 0; i < buf.num_lines; i++) {
-    write(1, buf.lines[i].str, sizeof(char_t) * buf.lines[i].len);
-    printf("\n");
+  while (true) {
+    /* ===== Drawing ===== */
+
+    st_clear();
+
+    int height = min(buf.num_lines, st_height());
+    int max_digits = floor(log10(buf.num_lines + 1));
+    for (int y = buf.bound_y; y < height; y++) {
+      int width = min(st_width(), buf.lines[y].len);
+
+      int num_digits = max_digits - floor(log10(y + 1));
+      printf("\x1b[38;5;244m"); // TODO: Add colors to stui.h
+      for (int i = 0; i < num_digits; i++) {
+        printf(" ");
+      }
+      printf("%d│", y + 1);
+
+      printf("\x1b[38;5;255m");
+
+      for (int x = buf.bound_x; x < width; x++) {
+        write(1, &buf.lines[y].str[x], 1); // TODO: magic number
+      }
+      printf("\n");
+    }
+    st_set_cursor(buf.cursor.x + max_digits + 2, buf.cursor.y);
+
+    /* ==== Input ==== */
+    {
+      char_t input;
+      read(0, &input, 1); // TODO: magic number
+      switch (buf.mode) {
+      case MODE_NORMAL: {
+        switch (input) {
+        case 'q': goto exit; break;
+        case 'h': buf.cursor.x -= 1; break;
+        case 'j': buf.cursor.y += 1; break;
+        case 'k': buf.cursor.y -= 1; break;
+        case 'l': buf.cursor.x += 1; break;
+        case 'd': {
+          delete_range(&buf.lines[buf.cursor.y], buf.cursor.x, 1);
+        } break;
+        case 'o': {
+          insert_line(&buf, buf.cursor.y + 1);
+          buf.cursor.y += 1;
+          // could putting this into a function be used to implement hooks?
+          buf.mode = MODE_INSERT;
+        }
+        case 'i': buf.mode = MODE_INSERT; break;
+        }
+      } break;
+      case MODE_INSERT: {
+        if (input >= ' ' && input <= '~') { // TODO: unicode
+          insert_str(&buf, buf.cursor.x, buf.cursor.y, &input, 1);
+          buf.cursor.x += 1;
+        }
+        if (input == '\x1b') buf.mode = 0;
+      } break;
+      default:
+        assert(!"Unimplemented");
+      }
+    }
   }
 
+exit:
+  st_cleanup();
   return 0;
 }

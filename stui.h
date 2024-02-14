@@ -10,6 +10,8 @@ void st_hide_cursor();
 void st_clear();
 void st_init(void);
 void st_cleanup(void);
+unsigned short st_width();
+unsigned short st_height();
 
 #endif
 
@@ -74,6 +76,13 @@ void st_cleanup(void) {
   st_clear();
   printf("\x1b[?1049l");
   tcsetattr(1, TCSANOW, &st_initial_termios);
+}
+
+unsigned short st_width() {
+  return st_winsize.ws_row; // TODO: swapped
+}
+unsigned short st_height() {
+  return st_winsize.ws_col;
 }
 
 #endif

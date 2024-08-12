@@ -28,7 +28,7 @@ typedef struct {
   size_t line_buf_len;
   size_t line_buf_cap;
 
-  int bound_x, bound_y; // Rightmost x and top y
+  int bound_x, bound_y; // Rightmost x and topmost y
 
   Cursor cur;
 
@@ -75,7 +75,7 @@ int main(void) {
       int width = min(st_width(), buf.lines[y].len);
 
       int num_digits = max_digits - floor(log10(y + 1));
-      printf("\n");
+      printf("\n"); // TODO: find nice solution for this
       printf("\x1b[38;5;244m"); // TODO: Add colors to stui.h
       for (int i = 0; i < num_digits; i++) {
         printf(" ");
@@ -126,7 +126,17 @@ int main(void) {
           }
         } break;
         case 'd': {
-          delete_range(line, buf.cur.x, 1);
+          if (buf.cur.x < line->len) {
+            del_range(line, buf.cur.x, 1);
+          } else if (buf.cur.y < buf.num_lines - 1) {
+            insert_str(
+              &buf,
+              buf.cur.x, buf.cur.y,
+              buf.lines[buf.cur.y + 1].str,
+              buf.lines[buf.cur.y + 1].len
+            );
+            // del_line(&buf, buf.cur.y + 1);
+          }
         } break;
         case 'o': {
           insert_line(&buf, buf.cur.y + 1);
@@ -135,7 +145,6 @@ int main(void) {
           buf.mode = MODE_INSERT;
         }
         case 'i': buf.mode = MODE_INSERT; break;
-        }
       } break;
       case MODE_INSERT: {
         if (input >= ' ' && input <= '~') { // TODO: unicode
@@ -143,6 +152,7 @@ int main(void) {
           inc_cur_x(line, &buf.cur);
         }
         if (input == '\x1b') buf.mode = 0;
+        }
       } break;
       default:
         assert(!"Unimplemented");

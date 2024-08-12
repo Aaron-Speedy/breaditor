@@ -1,4 +1,3 @@
-
 // See end of file for licensing
 
 #ifndef STUI_H

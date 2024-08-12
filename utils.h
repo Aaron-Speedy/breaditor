@@ -3,7 +3,8 @@
 
 void insert_line(Buffer *buf, int y);
 void insert_str(Buffer *buf, int x, int y, char_t *str, char_t str_len);
-void delete_range(Line *line, int x, int len);
+void del_range(Line *line, int x, int len);
+void del_line(Buffer *buf, int y);
 void set_cur_x(Line *line, Cursor *cur, size_t nx);
 void set_cur_y(Buffer *buf, Cursor *cur, size_t ny);
 void inc_cur_x(Line *line, Cursor *cur);
@@ -109,8 +110,9 @@ void insert_str(Buffer *buf, int x, int y, char_t *str, char_t str_len) {
   }
 }
 
-void delete_range(Line *line, int x, int len) {
+void del_range(Line *line, int x, int len) {
   assert(x + len <= line->len && "Out of bounds");
+  assert(x >= 0 && "Out of bounds");
 
   if (x + len < line->len) {
     memmove(
@@ -122,9 +124,25 @@ void delete_range(Line *line, int x, int len) {
   line->len -= len;
 }
 
+// Does this cause line_buf to fragment?
+void del_line(Buffer *buf, int y) {
+  assert(y < buf->num_lines && "Out of bounds");
+  assert(y >= 0 && "Out of bounds");
+
+  if (y + 1 < buf->num_lines) {
+    memmove(
+      &buf->lines[y],
+      &buf->lines[y + 1],
+      sizeof(Line)
+    );
+  }
+  buf->num_lines -= 1;
+}
+
 void set_cur_x(Line *line, Cursor *cur, size_t nx) {
   assert(nx >= 0 && "Out of bounds");
   assert(nx <= line->len && "Out of bounds");
+
   cur->x = nx;
   cur->sx = cur->x;
 }
@@ -132,6 +150,7 @@ void set_cur_x(Line *line, Cursor *cur, size_t nx) {
 void set_cur_y(Buffer *buf, Cursor *cur, size_t ny) {
   assert(ny >= 0 && "Out of bounds");
   assert(ny <= buf->num_lines && "Out of bounds");
+
   cur->y = ny;
   cur->x = cur->sx > buf->lines[ny].len ? buf->lines[ny].len : cur->sx;
 }
